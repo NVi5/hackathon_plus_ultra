@@ -50,6 +50,7 @@ reg   [1:0] ping_state       = 0;
 localparam  PING_IDLE        = 0;
 localparam  PING_READ        = 1;
 localparam  PING_WRITE       = 2;
+localparam  PING_LINK       = 3;
 //  local regs
 reg           done      = 0;
 //  read regs
@@ -95,9 +96,14 @@ always @(posedge i_clk) begin
                 PING_WRITE: begin    //  write data
                     if (i_wready) begin
                         w_valid <= 1;
-                        link    <= 1;
-                        ping_state   <= PING_IDLE;
+                        ping_state   <= PING_LINK;
                     end
+                end
+
+                PING_LINK: begin    //  go to link
+                    w_valid <= 0;
+                    link    <= 1;
+                    ping_state   <= PING_IDLE;
                 end
             endcase
 
@@ -107,6 +113,7 @@ always @(posedge i_clk) begin
             end
             else begin
                 link    <= 0;
+                frame_assembly_start <= 1'b0;
             end
             // link <= 0;
         end
@@ -114,7 +121,7 @@ always @(posedge i_clk) begin
 end
 
 
-// assign    o_done   = done;
+assign    o_link   = link;
 assign    o_rreq   = r_req;
 assign    o_wdata  = link ? o_wdata2  : w_data;
 assign    o_wvalid = link ? o_wvalid2 : w_valid;
