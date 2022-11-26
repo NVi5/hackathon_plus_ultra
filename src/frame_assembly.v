@@ -93,6 +93,8 @@ module frame_assembly (
     input  wire [6:0]       i_type,
     input  wire [335:0]     i_payload,
 
+    input  wire [5:0]       i_payload_size,
+
     output reg              done,
     input  wire             start
 );
@@ -122,15 +124,16 @@ always @(posedge clk) begin
     end else begin
         case (state)
             IDLE: begin
-                ctr <= MHP_FRAME_LEN-1;
+                ctr <= MHP_FRAME_LEN-1-(42-i_payload_size);
                 done <= 1'b0;
-                shift <= 0;
-        scs <= 0;
+                shift <= shift + 1;
+                     scs <= 0;
                 if (start) begin
                     frame <= {scs, i_payload, i_dir, i_type, i_size, i_src, i_dst} >> 8;
                     o_wvalid <= 1'b1;
                     state <= FRAME_SENDING;
                     o_wdata <= i_dst[7:0];
+                    scs <= scs + (i_dst[7:0] << shift);
                 end
             end
             FRAME_SENDING: begin
@@ -141,9 +144,9 @@ always @(posedge clk) begin
                 end
                 else if (ctr > 0) begin
                     shift <= shift + 1;
-                    scs <= scs + (o_wdata << shift);
+                    scs <= scs + (frame[7:0] << shift);
                     state <= FRAME_SENDING;
-                    o_wdata <= frame[7 : 0];
+                    o_wdata <= frame[7:0];
                     frame <= frame >> 8;
                     ctr <= ctr - 1;
                 end
@@ -151,9 +154,11 @@ always @(posedge clk) begin
                     o_wvalid <= 1'b0;
                     state <= FRAME_SENT;
                 end
-                if (ctr == 1) done <= 1'b1;
+                     if (ctr == 1) done <= 1'b1;
             end
             FRAME_SENT: begin
+                     shift <= 0;
+                     scs <= 0;
                 state <= IDLE;
                 done <= 1'b0;
             end
