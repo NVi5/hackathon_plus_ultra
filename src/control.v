@@ -39,6 +39,9 @@ debug_port debug_port(
   //  sys
   .i_clk    (i_clk),
   .i_rst    (i_rst),
+  // eht in
+  .i_eth_rdata  (i_eth_rdata),
+  .i_eth_rready (i_eth_rready),
   //  uart rx
   .i_rdata  (i_uart_rdata),
   .i_rready (i_uart_rready),

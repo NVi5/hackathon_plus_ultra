@@ -3,6 +3,9 @@
 module debug_port(
   //  sys
   input           i_clk,      i_rst,
+  // eht in
+  input   [7:0]   i_eth_rdata,
+  input           i_eth_rready,
   //  uart rx
   input   [7:0]   i_rdata,
   input           i_rready,
@@ -33,43 +36,46 @@ reg   [31:0]  watchdog  = 0;
 reg   [7:0]   wdata     = 0;
 reg           wvalid    = 0;
 
-always @(posedge i_clk) begin
-  if (i_rst) begin
-    state     <= 0;
-    watchdog  <= _TIME_30s;
-  end
-  else begin
-    if (state != IDLE)
-      watchdog <= _TIME_30s;
-    else if (watchdog != 0)
-      watchdog <= watchdog - 1;
-    case (state)
-      IDLE: begin
-        wdata  <= 0;
-        wvalid <= 0;
-        if (watchdog == 0) begin
-          state <=  START;
-        end
-      end
-      START: begin
-        wvalid <= 1;
-        wdata  <= _START_BYTE;
-        state  <= CODE;
-      end
-      CODE: begin
-        wvalid <= 1;
-        wdata  <= _WATCHDOG;
-        state  <= DONE;
-      end
-      DONE: begin
-        wvalid  <= 0;
-        state <= IDLE;
-      end
-    endcase
-  end
-end
+// always @(posedge i_clk) begin
+//   if (i_rst) begin
+//     state     <= 0;
+//     watchdog  <= _TIME_30s;
+//   end
+//   else begin
+//     if (state != IDLE)
+//       watchdog <= _TIME_30s;
+//     else if (watchdog != 0)
+//       watchdog <= watchdog - 1;
+//     case (state)
+//       IDLE: begin
+//         wdata  <= 0;
+//         wvalid <= 0;
+//         if (watchdog == 0) begin
+//           state <=  START;
+//         end
+//       end
+//       START: begin
+//         wvalid <= 1;
+//         wdata  <= _START_BYTE;
+//         state  <= CODE;
+//       end
+//       CODE: begin
+//         wvalid <= 1;
+//         wdata  <= _WATCHDOG;
+//         state  <= DONE;
+//       end
+//       DONE: begin
+//         wvalid  <= 0;
+//         state <= IDLE;
+//       end
+//     endcase
+//   end
+// end
 
-assign      o_wdata   = wdata;
-assign      o_wvalid  = wvalid;
+// assign      o_wdata   = wdata;
+// assign      o_wvalid  = wvalid;
+
+assign      o_wdata   = i_eth_rdata;
+assign      o_wvalid  = i_eth_rready;
 
 endmodule
