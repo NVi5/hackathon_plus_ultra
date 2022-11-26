@@ -150,8 +150,8 @@ always @(posedge clk) begin
                 else begin
                     o_wvalid <= 1'b0;
                     state <= FRAME_SENT;
-                    done <= 1'b1;
                 end
+                if (ctr == 1) done <= 1'b1;
             end
             FRAME_SENT: begin
                 state <= IDLE;
