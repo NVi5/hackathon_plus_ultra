@@ -68,7 +68,7 @@ mhp protocol(
   .i_clk    (i_clk),
   .i_rst    (i_rst),
   //  ctrl
-  .o_link   (link),
+  .o_link   (o_link),
 //   .o_done   (done),
   //  eth
   .i_rdata  (i_rdata),
@@ -79,6 +79,6 @@ mhp protocol(
   .o_wvalid (o_wvalid)
 );
 
-assign  o_link  = link;
+// assign  o_link  = link;
 
 endmodule

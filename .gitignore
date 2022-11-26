@@ -1,0 +1,12 @@
+quartus_project/output_files
+quartus_project/db
+quartus_project/incremental_db
+quartus_project/simulation
+quartus_project/greybox_tmp
+quartus_project/hackathon.qws
+.metadata
+.qsys_edit
+*.bak
+*.elf
+*.objdump
+*.map
