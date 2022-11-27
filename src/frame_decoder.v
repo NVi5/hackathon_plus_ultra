@@ -46,12 +46,12 @@ always @(posedge clk) begin
                     ctr <= ctr + 1;
                     state <= FRAME_RECEIVE;
                     // frame <= (frame << 8) | i_rdata;
+                    if (ctr == 0) o_dst[7:0] <= i_rdata;
                     if (ctr == 1) o_dst[15:8] <= i_rdata;
-                    if (ctr == 2) o_dst[7:0] <= i_rdata;
+                    if (ctr == 2) o_src[7:0] <= i_rdata;
                     if (ctr == 3) o_src[15:8] <= i_rdata;
-                    if (ctr == 4) o_src[7:0] <= i_rdata;
-                    if (ctr == 7) o_type[6:0] <= i_rdata;
-                    if (ctr >= 8) o_payload[8*(ctr-7) +:8] <= i_rdata;
+                    if (ctr == 6) o_type[6:0] <= i_rdata;
+                    if (ctr >= 7) o_payload[8*(ctr-7) +:8] <= i_rdata;
                 end
                 else begin
                     state <= FRAME_RECEIVED;
