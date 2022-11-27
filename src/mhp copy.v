@@ -20,10 +20,9 @@ wire  [7:0]      o_wdata2;
 wire             o_wvalid2;
 
 
-reg [15:0]      our_dst = 16'hffff;
-reg [15:0]      our_src = 16'h0000;
+reg [15:0]      our_dst;
+reg [15:0]      our_src;
 wire [15:0]      i_size = 37;
-wire             i_dir  = 1;
 reg [6:0]           our_type = 7'h3;
 reg [335:0]         our_payload = 336'b0;
 
@@ -40,12 +39,35 @@ frame_assembly frame_assembly_i(
     .i_dst(our_dst),
     .i_src(our_src),
     .i_size(i_size),
-    .i_dir(i_dir),
-    .i_type(our_type),
+    .i_dir(1'b1),
+    .i_type(i_type),
     .i_payload(i_payload),
     .i_payload_size(i_payload_size),
     .done(frame_assembly_done),
     .start(frame_assembly_start)
+);
+
+
+wire [15:0]      o_dst;
+wire [15:0]      o_src;
+wire [15:0]      o_size;
+wire             o_dir;
+wire [6:0]       o_type;
+wire [335:0]     o_payload;
+// wire             o_wvalid;
+
+frame_decoder frame_decoder_i(
+    .clk(i_clk),
+    .rst(i_rst),
+    .i_rdata(i_rdata),
+    .i_rvalid(r_req),
+    .o_dst(o_dst),
+    .o_src(o_src),
+    .o_size(o_size),
+    .o_dir(o_dir),
+    .o_type(o_type),
+    .o_payload(o_payload),
+    .o_wvalid()
 );
 
 //  fsm
@@ -55,11 +77,12 @@ localparam  PING_READ        = 1;
 localparam  PING_WRITE       = 2;
 localparam  PING_LINK       = 3;
 
-reg   [1:0] mhp_state       = 0;
+reg   [3:0] mhp_state       = 0;
 localparam  MHP_ADDR_REQ    = 0;
 localparam  MHP_IDLE        = 1;
 localparam  MHP_READ        = 2;
-localparam  MHP_WRITE       = 3;
+localparam  MHP_DELAY       = 3;
+localparam  MHP_READY       = 4;
 
 //  local regs
 reg           done      = 0;
@@ -92,10 +115,10 @@ always @(posedge i_clk) begin
         i_payload_size <= 0;
         read_ctr <= 8'h0;
         link_delay <= 500;
-        our_src <= 16'h0000;
+        our_src <= 0;
         our_dst <= 16'hffff;
-        our_type <= 7'h3;
-        our_payload <= 336'b0;
+        our_type = 7'h3;
+        our_payload = 336'b0;
     end
     else begin
         if (link == 1'b0) begin
@@ -144,6 +167,8 @@ always @(posedge i_clk) begin
             case (mhp_state)
 
                 MHP_ADDR_REQ: begin
+                    our_payload <= 336'b0;
+                    our_type <= 7'h3;
                     i_payload_size <= 37;
                     if (!frame_assembly_done) begin
                         frame_assembly_start  <= 1'b1;
@@ -169,22 +194,33 @@ always @(posedge i_clk) begin
                         r_req   <= 1;
                     else begin
                         r_req   <= 0;
-                        mhp_state   <= MHP_WRITE;
+                        mhp_state   <= MHP_READY;
+                        our_src <= o_dst;
+                        our_dst <= o_src;
+                    end
+                end
+
+                MHP_READY: begin
+                    our_type <= 7'h12;
+                    our_payload[7:0] <= 8'h01;
+                    our_payload[15:8] <= 8'h10;
+                    i_payload_size <= 37;
+                    if (!frame_assembly_done) begin
+                        frame_assembly_start  <= 1'b1;
+                    end
+                    else begin
+                        mhp_state   <= MHP_DELAY;
+                        frame_assembly_start <= 1'b0;
                         link_delay <= 500;
                     end
                 end
 
-                MHP_WRITE: begin    //  write data
+                MHP_DELAY: begin
                     link_delay <= link_delay - 1;
                     if (link_delay == 0) begin
                         link    <= 0;
                         mhp_state   <= MHP_ADDR_REQ;
                     end
-
-                    // if (i_wready) begin
-                    //     w_valid <= 1;
-                    //     mhp_state   <= MHP_READ;
-                    // end
                 end
             endcase
         end
