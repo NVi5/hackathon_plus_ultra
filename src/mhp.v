@@ -22,7 +22,7 @@ wire             o_wvalid2;
 
 wire [15:0]      i_dst  = 16'hffff;
 wire [15:0]      i_src  = 16'h0000;
-wire [15:0]      i_size = 0;
+wire [15:0]      i_size = 37;
 wire             i_dir  = 1;
 wire [6:0]       i_type = 7'h3;
 wire [335:0]     i_payload = 336'b0;
@@ -71,6 +71,16 @@ reg           w_valid   = 0;
 
 reg           link;
 
+vio u0 (
+    .source (trigger_send),
+    .probe  (read_ctr)
+);
+
+wire trigger_send;
+reg [7:0] read_ctr;
+
+reg [9:0] link_delay;
+
 always @(posedge i_clk) begin
     if (i_rst) begin
         done    <= 0;
@@ -80,6 +90,8 @@ always @(posedge i_clk) begin
         mhp_state   <= MHP_ADDR_REQ;
         link    <= 0;
         i_payload_size <= 0;
+        read_ctr <= 8'h0;
+        link_delay <= 500;
     end
     else begin
         if (link == 1'b0) begin
@@ -109,13 +121,17 @@ always @(posedge i_clk) begin
                     if (i_wready) begin
                         w_valid <= 1;
                         ping_state   <= PING_LINK;
+                        link_delay <= 500;
                     end
                 end
 
                 PING_LINK: begin    //  go to link
                     w_valid <= 0;
-                    link    <= 1;
-                    ping_state   <= PING_IDLE;
+                    link_delay <= link_delay - 1;
+                    if (link_delay == 0) begin
+                        link    <= 1;
+                        ping_state   <= PING_IDLE;
+                    end
                 end
             endcase
 
@@ -124,7 +140,7 @@ always @(posedge i_clk) begin
             case (mhp_state)
 
                 MHP_ADDR_REQ: begin
-                    i_payload_size <= 0;
+                    i_payload_size <= 37;
                     if (!frame_assembly_done) begin
                         frame_assembly_start  <= 1'b1;
                     end
@@ -135,9 +151,10 @@ always @(posedge i_clk) begin
                 end
 
                 MHP_IDLE: begin
-                    if (i_rready) begin // received frame's payload ready
+                    if (i_rready || trigger_send) begin // received frame's payload ready
                         r_req   <= 1;     // r_req set before read state, so we can expect valid data in READ state
                         mhp_state   <= MHP_READ;
+                        read_ctr <= read_ctr + 1;
                     end else begin
                         r_req   <= 0;
                     end
@@ -149,12 +166,16 @@ always @(posedge i_clk) begin
                     else begin
                         r_req   <= 0;
                         mhp_state   <= MHP_WRITE;
+                        link_delay <= 500;
                     end
                 end
 
                 MHP_WRITE: begin    //  write data
-                    link    <= 0;
-                    mhp_state   <= MHP_ADDR_REQ;
+                    link_delay <= link_delay - 1;
+                    if (link_delay == 0) begin
+                        link    <= 0;
+                        mhp_state   <= MHP_ADDR_REQ;
+                    end
 
                     // if (i_wready) begin
                     //     w_valid <= 1;

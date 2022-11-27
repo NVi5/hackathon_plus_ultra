@@ -129,7 +129,7 @@ always @(posedge clk) begin
                 shift <= shift + 1;
                      scs <= 0;
                 if (start) begin
-                    frame <= {scs, i_payload, i_dir, i_type, i_size, i_src, i_dst} >> 8;
+                    frame <= {scs, i_payload, i_dir, i_type, i_size[7:0], i_size[15:8], i_src, i_dst} >> 8;
                     o_wvalid <= 1'b1;
                     state <= FRAME_SENDING;
                     o_wdata <= i_dst[7:0];
@@ -138,9 +138,10 @@ always @(posedge clk) begin
             end
             FRAME_SENDING: begin
                 if (ctr < 3 && ctr > 0) begin
-                    o_wdata <= scs[15:8];
-                          scs <= scs << 8;
-                          ctr <= ctr - 1;
+                    o_wdata <= 0;
+                    // o_wdata <= scs[15:8];
+                    // scs <= scs << 8;
+                    ctr <= ctr - 1;
                 end
                 else if (ctr > 0) begin
                     shift <= shift + 1;
@@ -154,11 +155,12 @@ always @(posedge clk) begin
                     o_wvalid <= 1'b0;
                     state <= FRAME_SENT;
                 end
-                     if (ctr == 1) done <= 1'b1;
+                if (ctr == 1) done <= 1'b1;
+                else done <= 1'b0;
             end
             FRAME_SENT: begin
-                     shift <= 0;
-                     scs <= 0;
+                shift <= 0;
+                scs <= 0;
                 state <= IDLE;
                 done <= 1'b0;
             end
