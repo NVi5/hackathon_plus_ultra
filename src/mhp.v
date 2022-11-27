@@ -16,9 +16,18 @@ module mhp(
     output          o_wvalid
 );
 
+localparam ADDITION             = 8'h10;
+localparam SUBTRACTION          = 8'h20;
+localparam MULTIPLICATION       = 8'h30;
+localparam SINUS                = 8'h40;
+localparam COSINUS              = 8'h50;
+localparam FIBONACCI            = 8'h60;
 
 wire  [7:0]      o_wdata2;
 wire             o_wvalid2;
+
+
+
 
 
 reg [15:0]      our_scs;
@@ -111,10 +120,26 @@ vio u0 (
     .probe  (read_ctr)
 );
 
+reg fib_start;
+wire fib_done;
+reg [15:0] fib_result;
+
+
+fib u_fib(
+	.i_clk(i_clk),
+	.i_rst(i_rst),
+	.fib_start(fib_start),
+	.fib_done(fib_done),
+	.arg(o_payload[15:8]),
+	.result(fib_result),
+);
+
 wire stop;
 reg [7:0] read_ctr;
 
 reg [9:0] link_delay;
+
+reg [3:0] op_ctr;
 
 always @(posedge i_clk) begin
     if (i_rst || stop) begin
@@ -132,8 +157,11 @@ always @(posedge i_clk) begin
         our_dst <= 16'hffff;
         our_type <= 7'h3;
         our_payload <= 336'b0;
+        op_ctr <= 0;
+        fib_start <= 0;
     end
     else begin
+        fib_start <= 0;
         if (link == 1'b0) begin
             case (ping_state)
                 PING_IDLE: begin
@@ -200,6 +228,7 @@ always @(posedge i_clk) begin
                         r_req   <= 1;     // r_req set before read state, so we can expect valid data in READ state
                         mhp_state   <= MHP_READ;
                         read_ctr <= read_ctr + 1;
+                        op_ctr <= 0;
                     end else begin
                         r_req   <= 0;
                     end
@@ -219,9 +248,12 @@ always @(posedge i_clk) begin
                 MHP_READY: begin
                     our_scs <= 16'h0000;
                     our_type <= 7'h12;
-                    our_payload[7:0] <= 8'h02;
+                    our_payload[7:0] <= 8'h04;
                     our_payload[15:8] <= 8'h20;
                     our_payload[23:16] <= 8'h60;
+                    our_payload[31:24] <= 8'h61;
+                    our_payload[39:32] <= 8'h62;
+                    // our_payload[47:40] <= 8'h65;
                     i_payload_size <= 37;
                     if (!frame_assembly_done) begin
                         frame_assembly_start  <= 1'b1;
@@ -275,6 +307,9 @@ always @(posedge i_clk) begin
                     our_payload[7:0] <= 8'h00;
                     our_payload[15:8] <= 8'h00;
                     our_payload[23:16] <= 8'h00;
+                    our_payload[31:24] <= 8'h00;
+                    our_payload[39:32] <= 8'h00;
+                    our_payload[47:40] <= 8'h00;
                     i_payload_size <= 37;
                     if (!frame_assembly_done) begin
                         frame_assembly_start  <= 1'b1;
@@ -300,6 +335,7 @@ always @(posedge i_clk) begin
                         r_req   <= 1;
                     else begin
                         r_req   <= 0;
+                        op_ctr <= op_ctr + 1;
                         mhp_state   <= MHP_ADD_S;
                     end
                 end
@@ -307,17 +343,50 @@ always @(posedge i_clk) begin
                 MHP_ADD_S: begin
                     our_scs <= 16'h0000;
                     our_type <= 7'h0E;
-                    our_payload[15:0] <= o_payload[23:8] + o_payload[39:24];
-                    our_payload[23:16] <= 8'h00;
-                    i_payload_size <= 37;
-                    if (!frame_assembly_done) begin
-                        frame_assembly_start  <= 1'b1;
-                    end
-                    else begin
-                        mhp_state   <= MHP_DELAY;
-                        frame_assembly_start <= 1'b0;
-                        link_delay <= 500;
-                    end
+
+                    case (o_payload[7:0])
+                      ADDITION: begin
+                      our_payload[15:0] <= o_payload[23:8] + o_payload[39:24];
+                      end
+                      SUBTRACTION: begin
+                        our_payload[15:0] <= o_payload[23:8] - o_payload[39:24];
+                      end
+                      MULTIPLICATION: begin
+                        our_payload[15:0] <=  o_payload[23:8] * o_payload[39:24];
+                      end
+                    //   SIN: begin
+
+                    //   end
+                    //   COS: begin
+
+                    //   end
+                        // FIBONACCI: begin
+                        //     if (!fib_done) begin
+                        //         fib_start  <= 1'b1;
+                        //     end
+                        //     else begin
+                        //         fib_start <= 1'b0;
+                        //         our_payload[15:0] <= fib_result;
+                        //     end
+                        // end
+                    endcase
+
+                    // if (o_payload[7:0] != FIBONACCI || fib_done) begin
+                        our_payload[23:16] <= 8'h00;
+                        our_payload[31:24] <= 8'h00;
+                        our_payload[39:32] <= 8'h00;
+                        our_payload[47:40] <= 8'h00;
+                        i_payload_size <= 37;
+                        if (!frame_assembly_done) begin
+                            frame_assembly_start  <= 1'b1;
+                        end
+                        else begin
+                            if (op_ctr >= 3) mhp_state <= MHP_DELAY;
+                            else mhp_state <= MHP_ADD_R1;
+                            frame_assembly_start <= 1'b0;
+                            link_delay <= 500;
+                        end
+                    // end
                 end
 
                 MHP_DELAY: begin
